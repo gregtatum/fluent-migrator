@@ -46,6 +46,17 @@ fn quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum Node {
+    Entity(Entity),
+}
+
+impl From<Entity> for Node {
+    fn from(other: Entity) -> Self {
+        Node::Entity(other)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Entity {
     pub key: String,
     pub value: String,
@@ -55,7 +66,7 @@ pub struct Entity {
 ///          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Option<Entity>, E> {
+) -> IResult<&'a str, Option<Node>, E> {
     map(
         tuple((
             take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c || '-' == c),
@@ -64,10 +75,13 @@ fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
             tag(">"),
         )),
         |tuple| {
-            Some(Entity {
-                key: tuple.0.to_string(),
-                value: tuple.2.to_string(),
-            })
+            Some(
+                Entity {
+                    key: tuple.0.to_string(),
+                    value: tuple.2.to_string(),
+                }
+                .into(),
+            )
         },
     )(i)
 }
@@ -91,7 +105,7 @@ fn ascii_alphanumeric<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 // BCCCCCCCCD
 fn entity_percent_attribute<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Option<Entity>, E> {
+) -> IResult<&'a str, Option<Node>, E> {
     value(
         None,
         context(
@@ -117,7 +131,7 @@ fn entity_percent_attribute<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 fn entity_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Option<Entity>, E> {
+) -> IResult<&'a str, Option<Node>, E> {
     map(
         context(
             "entity",
@@ -133,7 +147,7 @@ fn entity_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 
 pub fn dtd<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Vec<Entity>, E> {
+) -> IResult<&'a str, Vec<Node>, E> {
     context(
         "dtd",
         fold_many0(
@@ -221,22 +235,26 @@ mod test {
                 entity_tag,
                 "<!ENTITY ldb.MainWindow.title \"Layout Debugger\">"
             )
-            .1,
-            Some(Entity {
+            .1
+            .unwrap(),
+            Entity {
                 key: "ldb.MainWindow.title".into(),
                 value: "Layout Debugger".into(),
-            }),
+            }
+            .into()
         );
         assert_eq!(
             parse!(
                 entity_tag,
                 "<!ENTITY performanceUI.toolbar.js-calltree \"Call Tree\">"
             )
-            .1,
-            Some(Entity {
+            .1
+            .unwrap(),
+            Entity {
                 key: "performanceUI.toolbar.js-calltree".into(),
                 value: "Call Tree".into(),
-            }),
+            }
+            .into()
         );
     }
 
@@ -267,28 +285,34 @@ mod test {
             [
                 Entity {
                     key: "ldb.MainWindow.title".into(),
-                    value: "Layout Debugger".into()
-                },
+                    value: "Layout Debugger".into(),
+                }
+                .into(),
                 Entity {
                     key: "ldb.BackButton.label".into(),
-                    value: "Back".into()
-                },
+                    value: "Back".into(),
+                }
+                .into(),
                 Entity {
                     key: "ldb.ForwardButton.label".into(),
-                    value: "Forward".into()
-                },
+                    value: "Forward".into(),
+                }
+                .into(),
                 Entity {
                     key: "ldb.ReloadButton.label".into(),
-                    value: "Reload".into()
-                },
+                    value: "Reload".into(),
+                }
+                .into(),
                 Entity {
                     key: "ldb.StopButton.label".into(),
-                    value: "Stop".into()
-                },
+                    value: "Stop".into(),
+                }
+                .into(),
                 Entity {
                     key: "ldb.StopButton.label2".into(),
-                    value: "Stop Again".into()
+                    value: "Stop Again".into(),
                 }
+                .into(),
             ]
         );
     }
