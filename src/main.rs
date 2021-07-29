@@ -1,7 +1,9 @@
-use clap::{App, Arg};
-use std::{ffi::OsStr, fs, path::Path};
-
+#[macro_use]
 pub mod parser;
+
+use clap::{App, Arg};
+use parser::dtd;
+use std::{ffi::OsStr, fs, path::Path};
 
 fn main() {
     let matches = App::new("DTD to Fluent Migrator")
@@ -35,7 +37,7 @@ fn main() {
         })
         .for_each(|path| {
             let string = fs::read_to_string(path).expect("Failed to read file.");
-            parser::parse_dtd(&string);
+            println!("\n{}\n\n{:#?}", path.display(), parse!(dtd, &string));
         });
 
     println!("Done parsing dtds");
