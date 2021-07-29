@@ -32,10 +32,16 @@ fn quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     map(
         tuple((
             char('\"'),
-            escaped(none_of("\\\""), '\\', one_of("\\\"")),
+            opt(escaped(none_of("\\\""), '\\', one_of("\\\""))),
             char('\"'),
         )),
-        |tuple: (char, &str, char)| tuple.1.replace("\\\"", "\"").replace("\\\\", "\\"),
+        |tuple: (char, Option<&str>, char)| {
+            if let Some(string) = tuple.1 {
+                string.replace("\\\"", "\"").replace("\\\\", "\\")
+            } else {
+                String::from("")
+            }
+        },
     )(i)
 }
 
@@ -45,12 +51,14 @@ pub struct Entity {
     pub value: String,
 }
 
+/// <!ENTITY ldb.visualDebugging.label "Visual Debugging">
+///          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, Option<Entity>, E> {
     map(
         tuple((
-            take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c),
+            take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c || '-' == c),
             whitespace,
             quoted_string,
             tag(">"),
@@ -64,6 +72,49 @@ fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     )(i)
 }
 
+fn ascii_alphanumeric<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    i: &'a str,
+) -> IResult<&'a str, &'a str, E> {
+    context(
+        "ascii_alphanumeric",
+        take_while(|c: char| c.is_ascii_alphanumeric()),
+    )(i)
+}
+
+// Discard the following information:
+//
+// <!ENTITY % brandDTD SYSTEM "chrome://branding/locale/brand.dtd" >
+//          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//          12333333334555555677777777777777777777777777777777777789A
+// %brandDTD;
+// ^^^^^^^^^^
+// BCCCCCCCCD
+fn entity_percent_attribute<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    i: &'a str,
+) -> IResult<&'a str, Option<Entity>, E> {
+    value(
+        None,
+        context(
+            "entity_percent_attribute",
+            tuple((
+                char('%'),          // 1
+                whitespace,         // 2
+                ascii_alphanumeric, // 3 brandDTD
+                whitespace,         // 4,
+                ascii_alphanumeric, // 5 SYSTEM
+                whitespace,         // 6
+                quoted_string,      // 7 "chrome://branding/locale/brand.dtd"
+                opt(whitespace),    // 8
+                char('>'),          // 9
+                opt(whitespace),    // A
+                char('%'),          // B
+                ascii_alphanumeric, // C brandDTD
+                char(';'),          // D
+            )),
+        ),
+    )(i)
+}
+
 fn entity_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, Option<Entity>, E> {
@@ -73,7 +124,7 @@ fn entity_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
             tuple((
                 tag("<!ENTITY"),
                 whitespace,
-                alt((entity_attributes, entity_attributes)),
+                alt((entity_attributes, entity_percent_attribute)),
             )),
         ),
         |tuple| tuple.2,
@@ -156,6 +207,7 @@ mod test {
         assert_err("\"no trailing");
         assert_err("no leading\"");
         assert("\"test\"", "test");
+        assert("\"\"", "");
         assert("\"test \\\" escaped\"", "test \" escaped");
         assert("\"test \\\\ escaped\"", "test \\ escaped");
         assert("\"test \\\" escaped \\\" twice\"", "test \" escaped \" twice");
@@ -164,15 +216,35 @@ mod test {
 
     #[test]
     fn test_entities() {
-        let entity =
-            entity_tag::<()>("<!ENTITY ldb.MainWindow.title \"Layout Debugger\">").unwrap();
         assert_eq!(
-            entity.1,
+            parse!(
+                entity_tag,
+                "<!ENTITY ldb.MainWindow.title \"Layout Debugger\">"
+            )
+            .1,
             Some(Entity {
                 key: "ldb.MainWindow.title".into(),
                 value: "Layout Debugger".into(),
             }),
         );
+        assert_eq!(
+            parse!(
+                entity_tag,
+                "<!ENTITY performanceUI.toolbar.js-calltree \"Call Tree\">"
+            )
+            .1,
+            Some(Entity {
+                key: "performanceUI.toolbar.js-calltree".into(),
+                value: "Call Tree".into(),
+            }),
+        );
+    }
+
+    #[test]
+    fn test_entity_percent() {
+        let text =
+            "<!ENTITY % brandDTD SYSTEM \"chrome://branding/locale/brand.dtd\" >\n%brandDTD;";
+        assert_eq!(parse!(entity_tag, text).1, None);
     }
 
     #[test]
