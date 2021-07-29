@@ -1,0 +1,10 @@
+[package]
+name = "dtd-migration"
+version = "0.1.0"
+edition = "2018"
+
+[features]
+
+[dependencies]
+clap = "2.33"
+nom = { version = "6.2", features = ["alloc"] }
