@@ -45,25 +45,38 @@ pub struct Entity {
     pub value: String,
 }
 
+fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    i: &'a str,
+) -> IResult<&'a str, Option<Entity>, E> {
+    map(
+        tuple((
+            take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c),
+            whitespace,
+            quoted_string,
+            tag(">"),
+        )),
+        |tuple| {
+            Some(Entity {
+                key: tuple.0.to_string(),
+                value: tuple.2.to_string(),
+            })
+        },
+    )(i)
+}
+
 fn entity_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, Entity, E> {
+) -> IResult<&'a str, Option<Entity>, E> {
     map(
         context(
             "entity",
             tuple((
                 tag("<!ENTITY"),
                 whitespace,
-                take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c),
-                whitespace,
-                quoted_string,
-                tag(">"),
+                alt((entity_attributes, entity_attributes)),
             )),
         ),
-        |tuple| Entity {
-            key: tuple.2.to_string(),
-            value: tuple.4,
-        },
+        |tuple| tuple.2,
     )(i)
 }
 
@@ -82,7 +95,7 @@ pub fn dtd<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
             )),
             Vec::new(),
             |mut entities: Vec<_>, tuple| {
-                if let Some(entity) = tuple.1 {
+                if let Some(Some(entity)) = tuple.1 {
                     // Kind of a bad clone.
                     entities.push(entity);
                 }
@@ -155,10 +168,10 @@ mod test {
             entity_tag::<()>("<!ENTITY ldb.MainWindow.title \"Layout Debugger\">").unwrap();
         assert_eq!(
             entity.1,
-            Entity {
+            Some(Entity {
                 key: "ldb.MainWindow.title".into(),
                 value: "Layout Debugger".into(),
-            },
+            }),
         );
     }
 
