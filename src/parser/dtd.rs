@@ -1,4 +1,4 @@
-use nom::*;
+use super::*;
 use nom::{
     //
     branch::*,
@@ -8,17 +8,12 @@ use nom::{
     error::*,
     multi::*,
     sequence::*,
+    *,
 };
 
 // fn blank<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 //     i: &'a str,
 // ) -> IResult<&'a str, &'a str, E> {}
-
-fn whitespace<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    i: &'a str,
-) -> IResult<&'a str, &'a str, E> {
-    context("whitespace", take_while(|c| " \t\r\n".contains(c)))(i)
-}
 
 // <!-- LOCALIZATION NOTE (securityOverride.warningContent) Lorem ipsum -->
 // 0000
@@ -27,23 +22,13 @@ fn comment_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 ) -> IResult<&'a str, Option<Node>, E> {
     map(
         tuple((
-            tag("<!--"),     // 0
-            opt(whitespace), // 1
-            opt(map(
-                // Capture localization notes.
-                tuple((
-                    tag("LOCALIZATION NOTE"),
-                    opt(whitespace),
-                    delimited(tag("("), entity_key, tag(")")),
-                    opt(whitespace),
-                    opt(char(':')),
-                )),
-                |tuple| tuple.2,
-            )), // 2
-            opt(whitespace), // 3
-            take_until("-->"), // 4
-            opt(whitespace), // 5
-            tag("-->"),      // 6
+            tag("<!--"),            // 0
+            opt(whitespace),        // 1
+            opt(localization_note), // 2
+            opt(whitespace),        // 3
+            take_until("-->"),      // 4
+            opt(whitespace),        // 5
+            tag("-->"),             // 6
         )),
         |tuple| {
             Some(
@@ -104,12 +89,6 @@ impl<'a> From<Comment<'a>> for Node<'a> {
 pub struct Comment<'a> {
     pub key: Option<&'a str>,
     pub value: &'a str,
-}
-
-fn entity_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    i: &'a str,
-) -> IResult<&'a str, &str, E> {
-    take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c || '-' == c)(i)
 }
 
 /// <!ENTITY ldb.visualDebugging.label "Visual Debugging">
@@ -209,27 +188,28 @@ pub fn dtd<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     )(i)
 }
 
-macro_rules! parse {
-    ($fn:tt, $text:expr) => {{
-        let data: &str = $text;
-        match $fn::<nom::error::VerboseError<&str>>(data) {
-            Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
-                panic!(
-                    "\n\nParsing Error:\n\n{}",
-                    nom::error::convert_error(data, e)
-                );
-            }
-            Err(nom::Err::Incomplete(needed)) => {
-                panic!("Incomplete, needed: {:?}", needed);
-            }
-            Ok(value) => value,
-        }
-    }};
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
+
+    // TODO - De-duplicate.
+    macro_rules! parse {
+        ($fn:ident, $text:expr) => {{
+            let data: &str = $text;
+            match $fn::<nom::error::VerboseError<&str>>(data) {
+                Err(nom::Err::Error(e)) | Err(nom::Err::Failure(e)) => {
+                    panic!(
+                        "\n\nParsing Error:\n\n{}",
+                        nom::error::convert_error(data, e)
+                    );
+                }
+                Err(nom::Err::Incomplete(needed)) => {
+                    panic!("Incomplete, needed: {:?}", needed);
+                }
+                Ok(value) => value,
+            }
+        }};
+    }
 
     #[test]
     fn test_comments() {

@@ -1,4 +1,4 @@
-use crate::dtd::{Comment, Node};
+use crate::parser::dtd::{Comment, Node};
 use convert_case::{Case, Casing};
 use std::collections::HashMap;
 
