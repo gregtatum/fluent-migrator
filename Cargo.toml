@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 clap = "2.33"
 nom = { version = "6.2", features = ["alloc"] }
+convert_case = "0.4"

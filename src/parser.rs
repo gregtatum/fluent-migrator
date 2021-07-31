@@ -20,10 +20,41 @@ fn whitespace<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     context("whitespace", take_while(|c| " \t\r\n".contains(c)))(i)
 }
 
+// <!-- LOCALIZATION NOTE (securityOverride.warningContent) Lorem ipsum -->
+// 0000
 fn comment_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
-) -> IResult<&'a str, (), E> {
-    value((), tuple((tag("<!--"), take_until("-->"), tag("-->"))))(i)
+) -> IResult<&'a str, Option<Node>, E> {
+    map(
+        tuple((
+            tag("<!--"),     // 0
+            opt(whitespace), // 1
+            opt(map(
+                // Capture localization notes.
+                tuple((
+                    tag("LOCALIZATION NOTE"),
+                    opt(whitespace),
+                    delimited(tag("("), entity_key, tag(")")),
+                    opt(whitespace),
+                    opt(char(':')),
+                )),
+                |tuple| tuple.2,
+            )), // 2
+            opt(whitespace), // 3
+            take_until("-->"), // 4
+            opt(whitespace), // 5
+            tag("-->"),      // 6
+        )),
+        |tuple| {
+            Some(
+                Comment {
+                    key: tuple.2,
+                    value: tuple.4.trim_end().into(),
+                }
+                .into(),
+            )
+        },
+    )(i)
 }
 
 fn quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
@@ -46,20 +77,39 @@ fn quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Node {
-    Entity(Entity),
+pub enum Node<'a> {
+    Entity(Entity<'a>),
+    Comment(Comment<'a>),
 }
 
-impl From<Entity> for Node {
-    fn from(other: Entity) -> Self {
+impl<'a> From<Entity<'a>> for Node<'a> {
+    fn from(other: Entity<'a>) -> Self {
         Node::Entity(other)
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Entity {
-    pub key: String,
+pub struct Entity<'a> {
+    pub key: &'a str,
     pub value: String,
+}
+
+impl<'a> From<Comment<'a>> for Node<'a> {
+    fn from(other: Comment<'a>) -> Self {
+        Node::Comment(other)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Comment<'a> {
+    pub key: Option<&'a str>,
+    pub value: &'a str,
+}
+
+fn entity_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    i: &'a str,
+) -> IResult<&'a str, &str, E> {
+    take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c || '-' == c)(i)
 }
 
 /// <!ENTITY ldb.visualDebugging.label "Visual Debugging">
@@ -68,16 +118,11 @@ fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, Option<Node>, E> {
     map(
-        tuple((
-            take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c || '-' == c),
-            whitespace,
-            quoted_string,
-            tag(">"),
-        )),
+        tuple((entity_key, whitespace, quoted_string, tag(">"))),
         |tuple| {
             Some(
                 Entity {
-                    key: tuple.0.to_string(),
+                    key: tuple.0,
                     value: tuple.2.to_string(),
                 }
                 .into(),
@@ -151,16 +196,10 @@ pub fn dtd<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     context(
         "dtd",
         fold_many0(
-            tuple((
-                opt(whitespace),
-                alt((
-                    map(comment_tag, |_| None),
-                    map(entity_tag, |entity| Some(entity)),
-                )),
-            )),
+            tuple((opt(whitespace), alt((comment_tag, entity_tag)))),
             Vec::new(),
             |mut entities: Vec<_>, tuple| {
-                if let Some(Some(entity)) = tuple.1 {
+                if let Some(entity) = tuple.1 {
                     // Kind of a bad clone.
                     entities.push(entity);
                 }
@@ -193,18 +232,81 @@ mod test {
     use super::*;
 
     #[test]
-    #[rustfmt::skip]
     fn test_comments() {
-        let assert = |text, after| assert_eq!((after, ()), parse!(comment_tag, text));
-        let assert_err = |text| assert!(comment_tag::<()>(text).is_err());
+        let assert = |comment: Comment| {
+            let result = parse!(comment_tag, comment.input);
+            let parsed_comment = match result.1 {
+                Some(Node::Comment(comment)) => comment,
+                _ => panic!(""),
+            };
+            assert_eq!(
+                comment,
+                Comment {
+                    input: comment.input,
+                    comment: parsed_comment.value,
+                    key: parsed_comment.key,
+                    after: result.0,
+                }
+            );
+        };
+        let assert_err = |input| assert!(comment_tag::<()>(input).is_err());
 
-        assert("<!-- This is a comment -->",       "");
-        assert("<!-- This is a comment --> after", " after");
-        assert("<!-- --> -->",                     " -->");
-        assert("<!-- --> after",                   " after");
-        assert("<!---->",                          "");
-        assert("<!----> after ",                   " after ");
-        assert("<!----> <!---->",                  " <!---->");
+        #[derive(Debug, PartialEq)]
+        struct Comment<'s> {
+            input: &'s str,
+            comment: &'s str,
+            key: Option<&'s str>,
+            after: &'s str,
+        }
+
+        assert(Comment {
+            input: "<!-- This is a comment -->",
+            comment: "This is a comment",
+            key: None,
+            after: "",
+        });
+        assert(Comment {
+            input: "<!-- This is a comment --> after",
+            comment: "This is a comment",
+            key: None,
+            after: " after",
+        });
+        assert(Comment {
+            input: "<!-- --> -->",
+            comment: "",
+            key: None,
+            after: " -->",
+        });
+        assert(Comment {
+            input: "<!-- --> after",
+            comment: "",
+            key: None,
+            after: " after",
+        });
+        assert(Comment {
+            input: "<!---->",
+            comment: "",
+            key: None,
+            after: "",
+        });
+        assert(Comment {
+            input: "<!----> after ",
+            comment: "",
+            key: None,
+            after: " after ",
+        });
+        assert(Comment {
+            input: "<!----> <!---->",
+            comment: "",
+            key: None,
+            after: " <!---->",
+        });
+        assert(Comment {
+            input: "<!-- LOCALIZATION NOTE (key.value) Comment -->",
+            comment: "Comment",
+            key: Some("key.value"),
+            after: "",
+        });
 
         assert_err("");
         assert_err("<!--");
@@ -283,36 +385,34 @@ mod test {
         assert_eq!(
             entities,
             [
-                Entity {
+                Node::Comment(Comment {
+                    value: "preamble",
+                    key: None
+                }),
+                Node::Entity(Entity {
                     key: "ldb.MainWindow.title".into(),
                     value: "Layout Debugger".into(),
-                }
-                .into(),
-                Entity {
+                }),
+                Node::Entity(Entity {
                     key: "ldb.BackButton.label".into(),
                     value: "Back".into(),
-                }
-                .into(),
-                Entity {
+                }),
+                Node::Entity(Entity {
                     key: "ldb.ForwardButton.label".into(),
                     value: "Forward".into(),
-                }
-                .into(),
-                Entity {
+                }),
+                Node::Entity(Entity {
                     key: "ldb.ReloadButton.label".into(),
                     value: "Reload".into(),
-                }
-                .into(),
-                Entity {
+                }),
+                Node::Entity(Entity {
                     key: "ldb.StopButton.label".into(),
                     value: "Stop".into(),
-                }
-                .into(),
-                Entity {
+                }),
+                Node::Entity(Entity {
                     key: "ldb.StopButton.label2".into(),
                     value: "Stop Again".into(),
-                }
-                .into(),
+                }),
             ]
         );
     }

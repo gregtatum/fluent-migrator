@@ -1,7 +1,9 @@
 #[macro_use]
 pub mod parser;
+pub mod fluent;
 
 use clap::{App, Arg};
+use fluent::dtd_to_fluent;
 use parser::dtd;
 use std::{ffi::OsStr, fs, path::Path};
 
@@ -37,7 +39,14 @@ fn main() {
         })
         .for_each(|path| {
             let string = fs::read_to_string(path).expect("Failed to read file.");
-            println!("\n{}\n\n{:#?}", path.display(), parse!(dtd, &string));
+            let nodes = parse!(dtd, &string).1;
+            // println!("\n{}\n\n{:#?}", path.display(), parse!(dtd, &string));
+
+            println!(
+                "\n# {}\n# ===================================================================",
+                path.display()
+            );
+            println!("{}", dtd_to_fluent(&nodes));
         });
 
     println!("Done parsing dtds");
