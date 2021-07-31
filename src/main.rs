@@ -1,10 +1,10 @@
 #[macro_use]
-pub mod parser;
+pub mod dtd;
 pub mod fluent;
 
 use clap::{App, Arg};
+use dtd::dtd;
 use fluent::dtd_to_fluent;
-use parser::dtd;
 use std::{ffi::OsStr, fs, path::Path};
 
 fn main() {
