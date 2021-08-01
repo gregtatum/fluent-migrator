@@ -2,7 +2,7 @@
 GECKO=~/dev/gecko
 
 # Property files
-cargo run -- --save --overwrite \
+fluent-migrator --save --overwrite \
   $GECKO/intl/locale/encodingsgroups.properties \
   $GECKO/intl/locale/language.properties \
   $GECKO/security/manager/locales/en-US/chrome/pippki/pippki.properties \

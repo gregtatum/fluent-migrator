@@ -2,24 +2,15 @@
 GECKO=~/dev/gecko
 
 # dtd files
-cargo run -- \
+fluent-migrator --save --overwrite \
   $GECKO/layout/tools/layout-debug/ui/locale/en-US/layoutdebug.dtd \
-  $GECKO/browser/branding/nightly/locales/en-US/brand.dtd \
-  $GECKO/browser/branding/unofficial/locales/en-US/brand.dtd \
-  $GECKO/browser/branding/aurora/locales/en-US/brand.dtd \
-  $GECKO/browser/branding/official/locales/en-US/brand.dtd \
   $GECKO/browser/locales/en-US/chrome/overrides/netError.dtd \
   $GECKO/browser/locales/en-US/chrome/browser/browser.dtd \
   $GECKO/browser/locales/en-US/chrome/browser/places/places.dtd \
   $GECKO/browser/locales/en-US/chrome/browser/translation.dtd \
   $GECKO/devtools/client/locales/en-US/performance.dtd \
-  $GECKO/devtools/client/locales/en-US/storage.dtd \
   $GECKO/devtools/client/locales/en-US/sourceeditor.dtd \
   $GECKO/mobile/locales/en-US/overrides/netError.dtd \
-  $GECKO/mobile/android/branding/beta/locales/en-US/brand.dtd \
-  $GECKO/mobile/android/branding/nightly/locales/en-US/brand.dtd \
-  $GECKO/mobile/android/branding/unofficial/locales/en-US/brand.dtd \
-  $GECKO/mobile/android/branding/official/locales/en-US/brand.dtd \
   $GECKO/mobile/android/locales/en-US/chrome/config.dtd \
   $GECKO/dom/locales/en-US/chrome/xml/prettyprint.dtd \
   $GECKO/dom/locales/en-US/chrome/netErrorApp.dtd \
