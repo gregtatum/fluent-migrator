@@ -16,7 +16,19 @@ use nom::{
 fn single_line_whitespace<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
-    context("whitespace", take_while(|c| " \t\r\n".contains(c)))(i)
+    context("whitespace", take_while(|c| " \t".contains(c)))(i)
+}
+
+fn rest_of_line<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    i: &'a str,
+) -> IResult<&'a str, &'a str, E> {
+    map(
+        tuple((
+            alt((take_until("\n"), rest)), // 0
+            opt(char('\n')),               // 1
+        )),
+        |tuple| tuple.0,
+    )(i)
 }
 
 fn whitespace<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
