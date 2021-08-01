@@ -8,11 +8,16 @@ use clap::{App, Arg};
 use fluent::nodes_to_fluent;
 use parser::dtd::dtd;
 use parser::properties::properties;
-use std::{ffi::OsStr, fs, path::Path};
+use std::{
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+};
 
 struct ParsedArgs<'a> {
     files: Vec<&'a str>,
     save: bool,
+    overwrite: bool,
 }
 
 enum Extension {
@@ -47,6 +52,7 @@ fn main() {
             .expect("At least one dtd file must be provided.")
             .collect(),
         save: matches.is_present("save"),
+        overwrite: matches.is_present("overwrite"),
     };
 
     for path_str in args.files {
@@ -75,23 +81,36 @@ fn main() {
                 Extension::Dtd => parse!(dtd, &string).1,
                 Extension::Properties => parse!(properties, &string).1,
             };
-            let fluent = nodes_to_fluent(&nodes);
+            let fluent_text = nodes_to_fluent(&nodes);
             if args.save {
-                panic!("TODO");
+                let mut save_path = PathBuf::from(path);
+                assert!(save_path.set_extension("ftl"));
+                if save_path.is_file() && !args.overwrite {
+                    // The file exists, warn but don't overwrite.
+                    println!(
+                        "Skipping file as it exists, use --overwrite to replace: {}",
+                        save_path.display()
+                    );
+                    continue;
+                }
+                match fs::write(save_path.clone(), fluent_text) {
+                    Ok(_) => println!("Saved: {}", save_path.display()),
+                    Err(err) => println!("Failed to write: {}\n{}", save_path.display(), err),
+                };
             } else {
                 println!(
                     "\n# {}\n# ===================================================================",
                     path.display()
                 );
-                println!("{}", fluent);
+                println!("{}", fluent_text);
             }
         } else {
             println!(
-                "The following file does not have a .dtd extension: {}",
+                "The following file cannot be converted as it does not have a .dtd or .properties extension:\n{}",
                 path_str,
             );
         }
     }
 
-    println!("Done parsing files");
+    println!("Done migrating files");
 }
