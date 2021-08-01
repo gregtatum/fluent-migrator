@@ -1,4 +1,4 @@
-use crate::parser::dtd::{Comment, Node};
+use crate::parser::{Comment, Node};
 use convert_case::{Case, Casing};
 use std::collections::HashMap;
 
@@ -11,7 +11,7 @@ const LICENSE: &'static str =
 
 ";
 
-pub fn dtd_to_fluent(nodes: &Vec<Node>) -> String {
+pub fn nodes_to_fluent(nodes: &Vec<Node>) -> String {
     let mut key_to_node: HashMap<&str, usize> = HashMap::new();
 
     for (index, node) in nodes.iter().enumerate() {
@@ -35,7 +35,7 @@ pub fn dtd_to_fluent(nodes: &Vec<Node>) -> String {
     let mut text: String = LICENSE.into();
     for node in iter {
         match node {
-            Node::Entity(entity) => {
+            Node::Message(entity) => {
                 // Add a comment that belongs to this.
                 if let Some(comment_index) = key_to_node.get(entity.key) {
                     if let Some(Node::Comment(comment)) = nodes.get(*comment_index) {

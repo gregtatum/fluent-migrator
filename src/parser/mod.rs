@@ -37,7 +37,7 @@ fn whitespace<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     context("whitespace", take_while(|c| " \t\r\n".contains(c)))(i)
 }
 
-fn entity_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+fn message_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &str, E> {
     take_while(|c: char| c.is_ascii_alphanumeric() || '.' == c || '-' == c)(i)
@@ -49,11 +49,11 @@ fn localization_note<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     map(
         // Capture localization notes.
         tuple((
-            tag("LOCALIZATION NOTE"),                  // 0
-            opt(whitespace),                           // 1
-            delimited(tag("("), entity_key, tag(")")), // 2
-            opt(whitespace),                           // 3
-            opt(char(':')),                            // 4
+            tag("LOCALIZATION NOTE"),                   // 0
+            opt(whitespace),                            // 1
+            delimited(tag("("), message_key, tag(")")), // 2
+            opt(whitespace),                            // 3
+            opt(char(':')),                             // 4
         )),
         |tuple| tuple.2,
     )(i)
@@ -76,4 +76,34 @@ macro_rules! parse {
             Ok(value) => value,
         }
     }};
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Node<'a> {
+    Message(Message<'a>),
+    Comment(Comment<'a>),
+}
+
+impl<'a> From<Message<'a>> for Node<'a> {
+    fn from(other: Message<'a>) -> Self {
+        Node::Message(other)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Message<'a> {
+    pub key: &'a str,
+    pub value: String,
+}
+
+impl<'a> From<Comment<'a>> for Node<'a> {
+    fn from(other: Comment<'a>) -> Self {
+        Node::Comment(other)
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Comment<'a> {
+    pub key: Option<&'a str>,
+    pub value: String,
 }

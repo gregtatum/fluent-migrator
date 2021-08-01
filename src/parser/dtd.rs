@@ -61,46 +61,16 @@ fn quoted_string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     )(i)
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Node<'a> {
-    Entity(Entity<'a>),
-    Comment(Comment<'a>),
-}
-
-impl<'a> From<Entity<'a>> for Node<'a> {
-    fn from(other: Entity<'a>) -> Self {
-        Node::Entity(other)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Entity<'a> {
-    pub key: &'a str,
-    pub value: String,
-}
-
-impl<'a> From<Comment<'a>> for Node<'a> {
-    fn from(other: Comment<'a>) -> Self {
-        Node::Comment(other)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Comment<'a> {
-    pub key: Option<&'a str>,
-    pub value: &'a str,
-}
-
 /// <!ENTITY ldb.visualDebugging.label "Visual Debugging">
 ///          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-fn entity_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+fn message_attributes<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, Option<Node>, E> {
     map(
-        tuple((entity_key, whitespace, quoted_string, tag(">"))),
+        tuple((message_key, whitespace, quoted_string, tag(">"))),
         |tuple| {
             Some(
-                Entity {
+                Message {
                     key: tuple.0,
                     value: tuple.2.to_string(),
                 }
@@ -162,7 +132,7 @@ fn entity_tag<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
             tuple((
                 tag("<!ENTITY"),
                 whitespace,
-                alt((entity_attributes, entity_percent_attribute)),
+                alt((message_attributes, entity_percent_attribute)),
             )),
         ),
         |tuple| tuple.2,
@@ -223,7 +193,7 @@ mod test {
                 comment,
                 Comment {
                     input: comment.input,
-                    comment: parsed_comment.value,
+                    comment: &parsed_comment.value,
                     key: parsed_comment.key,
                     after: result.0,
                 }
@@ -319,7 +289,7 @@ mod test {
             )
             .1
             .unwrap(),
-            Entity {
+            Message {
                 key: "ldb.MainWindow.title".into(),
                 value: "Layout Debugger".into(),
             }
@@ -332,7 +302,7 @@ mod test {
             )
             .1
             .unwrap(),
-            Entity {
+            Message {
                 key: "performanceUI.toolbar.js-calltree".into(),
                 value: "Call Tree".into(),
             }
@@ -366,30 +336,30 @@ mod test {
             entities,
             [
                 Node::Comment(Comment {
-                    value: "preamble",
+                    value: "preamble".into(),
                     key: None
                 }),
-                Node::Entity(Entity {
+                Node::Message(Message {
                     key: "ldb.MainWindow.title".into(),
                     value: "Layout Debugger".into(),
                 }),
-                Node::Entity(Entity {
+                Node::Message(Message {
                     key: "ldb.BackButton.label".into(),
                     value: "Back".into(),
                 }),
-                Node::Entity(Entity {
+                Node::Message(Message {
                     key: "ldb.ForwardButton.label".into(),
                     value: "Forward".into(),
                 }),
-                Node::Entity(Entity {
+                Node::Message(Message {
                     key: "ldb.ReloadButton.label".into(),
                     value: "Reload".into(),
                 }),
-                Node::Entity(Entity {
+                Node::Message(Message {
                     key: "ldb.StopButton.label".into(),
                     value: "Stop".into(),
                 }),
-                Node::Entity(Entity {
+                Node::Message(Message {
                     key: "ldb.StopButton.label2".into(),
                     value: "Stop Again".into(),
                 }),

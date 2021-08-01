@@ -34,36 +34,6 @@ macro_rules! parse {
     }};
 }
 
-impl<'a> From<Message<'a>> for Node<'a> {
-    fn from(other: Message<'a>) -> Self {
-        Node::Message(other)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Message<'a> {
-    pub key: &'a str,
-    pub value: &'a str,
-}
-
-impl<'a> From<Comment<'a>> for Node<'a> {
-    fn from(other: Comment<'a>) -> Self {
-        Node::Comment(other)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Comment<'a> {
-    pub key: Option<&'a str>,
-    pub value: String,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Node<'a> {
-    Message(Message<'a>),
-    Comment(Comment<'a>),
-}
-
 fn message_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     i: &'a str,
 ) -> IResult<&'a str, &str, E> {
@@ -83,7 +53,7 @@ fn message<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         )),
         |tuple| Message {
             key: tuple.1,
-            value: tuple.4.trim(),
+            value: tuple.4.trim().into(),
         },
     )(i)
 }
@@ -108,28 +78,28 @@ fn test_message() {
         input: "heapview.field.name=Group",
         comment: Message {
             key: "heapview.field.name",
-            value: "Group",
+            value: "Group".into(),
         },
     });
     assert(Test {
         input: "heapview.field.name = Group",
         comment: Message {
             key: "heapview.field.name",
-            value: "Group",
+            value: "Group".into(),
         },
     });
     assert(Test {
         input: "key-prop = This is a long message \n# Comment",
         comment: Message {
             key: "key-prop",
-            value: "This is a long message",
+            value: "This is a long message".into(),
         },
     });
     assert(Test {
         input: "    key   =   value    ",
         comment: Message {
             key: "key",
-            value: "value",
+            value: "value".into(),
         },
     });
 }
@@ -291,7 +261,7 @@ snapshot.io.save.window=Save Snapshot
         }.into(),
         Message {
             key: "snapshot.io.delete",
-            value: "Delete",
+            value: "Delete".into(),
         }.into(),
         Comment {
             key: Some("snapshot.io.save.window"),
@@ -299,7 +269,7 @@ snapshot.io.save.window=Save Snapshot
         }.into(),
         Message {
             key: "snapshot.io.save.window",
-            value: "Save Snapshot",
+            value: "Save Snapshot".into(),
         }.into()
     ]);
 }
