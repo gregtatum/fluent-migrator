@@ -55,13 +55,13 @@ fn main() {
         overwrite: matches.is_present("overwrite"),
     };
 
+    let files_len = args.files.len();
     for path_str in args.files {
         let path = Path::new(path_str);
-        assert!(
-            path.is_file(),
-            "The path did not appear to be a valid file: {}",
-            path_str
-        );
+        if !path.is_file() {
+            println!("File not found: {}", path_str);
+            continue;
+        }
         let extension = match path.extension() {
             Some(extension) => {
                 if extension == OsStr::new("dtd") {
@@ -98,10 +98,12 @@ fn main() {
                     Err(err) => println!("Failed to write: {}\n{}", save_path.display(), err),
                 };
             } else {
-                println!(
-                    "\n# {}\n# ===================================================================",
-                    path.display()
-                );
+                if files_len > 1 {
+                    println!(
+                        "\nConverting: {}\n===================================================================\n",
+                        path.display()
+                    );
+                }
                 println!("{}", fluent_text);
             }
         } else {
@@ -111,6 +113,4 @@ fn main() {
             );
         }
     }
-
-    println!("Done migrating files");
 }
