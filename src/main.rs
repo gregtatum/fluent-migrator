@@ -29,7 +29,29 @@ fn main() {
     let matches = App::new("Fluent Migrator")
         .version("v1.0.0")
         .about(
-            "\nTake Firefox .dtd or .property files and migrate them to the .ftl syntax.\nBy default the results are output to std out, instead of to files."
+            "\nTake Firefox .dtd or .property files and migrate them to the .ftl syntax.
+By default the results are output to std out, instead of to files.
+To update this utility run the following command:
+
+- Install or update
+  cargo install --git https://github.com/gregtatum/fluent-migrator
+
+- See the help
+  fluent-migrator --help
+
+- Output a migration to std out
+  fluent-migrator path/to/file.dtd
+  fluent-migrator path/to/file.properties
+
+- Save out to path/to/file.ftl
+  fluent-migrator --save path/to/file.dtd
+
+- Overwrite a previous migration
+  fluent-migrator --save --overwrite path/to/file.dtd
+
+- Migrate multiple files at once
+  fluent-migrator --save file1.dtd file2.properties file3.dtd
+",
         )
         .arg(
             Arg::with_name("files")
@@ -38,12 +60,12 @@ fn main() {
                 .required(true)
                 .help("The space separated list .dtd or .properties paths to migrate"),
         )
-        .arg(
-            Arg::from_usage("--save... 'Save the file next to the existing one with a .ftl extension'"),
-        )
-        .arg(
-            Arg::from_usage("--overwrite... 'Overwrite an .ftl file if it already exists'"),
-        )
+        .arg(Arg::from_usage(
+            "--save... 'Save the file next to the existing one with a .ftl extension'",
+        ))
+        .arg(Arg::from_usage(
+            "--overwrite... 'Overwrite an .ftl file if it already exists'",
+        ))
         .get_matches();
 
     let args = ParsedArgs {

@@ -5,7 +5,7 @@ Migrate Firefox [.dtd](https://searchfox.org/mozilla-central/search?q=&path=*.dt
 ## Usage
 
 ```sh
-# Install
+# Install or update
 cargo install --git https://github.com/gregtatum/fluent-migrator
 
 # See the help
